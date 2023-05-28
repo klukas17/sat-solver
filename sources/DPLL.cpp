@@ -32,48 +32,15 @@ void DPLL::solve() {
 
 void DPLL::fix_next_variable() {
 
-    std::vector<int> unit_clause_variables;
-    cnf->evaluate(assignment);
-
-    for (auto clause : cnf->clauses) {
-        if (clause->last_evaluation == 1)
-            continue;
-        int free_literals = 0;
-        int free_literal = 0;
-        for (auto literal : clause->literals) {
-            int literal_abs = literal;
-            if (literal_abs < 0)
-                literal_abs = -literal_abs;
-            if (assignment->variable_assignment[literal_abs] == -1) {
-                free_literal = literal;
-                free_literals++;
-                if (free_literals > 1)
-                    break;
-            }
-        }
-        if (free_literals == 1)
-            unit_clause_variables.push_back(free_literal);
-    }
-
     std::vector<int> possible_assignments;
     int variable;
+    bool status = false;
 
-    if (unit_clause_variables.empty()) {
-        auto it = assignment->unassigned_variables.begin();
-        std::advance(it, dis(gen) % assignment->unassigned_variables.size());
-        variable = *it;
-        possible_assignments = {0, 1};
-    }
+    std::vector<int> unit_clause_variables;
+    select_unit_clause_variables(unit_clause_variables, possible_assignments, variable, status);
 
-    else {
-        variable = unit_clause_variables[dis(gen) % unit_clause_variables.size()];
-        if (variable > 0) {
-            possible_assignments = {1};
-        }
-        else {
-            variable = -variable;
-            possible_assignments = {0};
-        }
+    if (!status) {
+        select_random_variable(possible_assignments, variable);
     }
 
     for (auto value : possible_assignments) {
@@ -95,4 +62,51 @@ void DPLL::fix_next_variable() {
             assignment->unassigned_variables.insert(variable);
         }
     }
+}
+
+void DPLL::select_unit_clause_variables(std::vector<int> &unit_clause_variables, std::vector<int> &possible_assignments, int &variable, bool &status) {
+
+    cnf->evaluate(assignment);
+    for (auto clause : cnf->clauses) {
+        if (clause->last_evaluation == 1)
+            continue;
+        int free_literals = 0;
+        int free_literal = 0;
+        for (auto literal : clause->literals) {
+            int literal_abs = literal;
+            if (literal_abs < 0)
+                literal_abs = -literal_abs;
+            if (assignment->variable_assignment[literal_abs] == -1) {
+                free_literal = literal;
+                free_literals++;
+                if (free_literals > 1)
+                    break;
+            }
+        }
+        if (free_literals == 1)
+            unit_clause_variables.push_back(free_literal);
+    }
+
+    if (!unit_clause_variables.empty()) {
+        status = true;
+        variable = unit_clause_variables[dis(gen) % unit_clause_variables.size()];
+        if (variable > 0) {
+            possible_assignments = {1};
+        }
+        else {
+            variable = -variable;
+            possible_assignments = {0};
+        }
+    }
+}
+
+void DPLL::select_random_variable(std::vector<int> &possible_assignments, int &variable) {
+    auto it = assignment->unassigned_variables.begin();
+    std::advance(it, dis(gen) % assignment->unassigned_variables.size());
+    variable = *it;
+    possible_assignments.push_back(dis(gen) % 2);
+    if (possible_assignments[0] == 0)
+        possible_assignments.push_back(1);
+    else
+        possible_assignments.push_back(0);
 }
