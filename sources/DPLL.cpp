@@ -5,8 +5,12 @@
 #include "DPLL.h"
 #include "vector"
 #include "iostream"
+#include <random>
+#include "climits"
 
-static std::vector<int> possible_assignments = {0, 1};
+std::random_device rd;
+std::mt19937 gen(rd());
+std::uniform_int_distribution<> dis(0, INT_MAX);
 
 DPLL::DPLL(Assignment *assignment, CNF *cnf) {
     this->assignment = assignment;
@@ -15,7 +19,7 @@ DPLL::DPLL(Assignment *assignment, CNF *cnf) {
 }
 
 void DPLL::solve() {
-    int next_variable = *assignment->unassigned_variables.begin();
+    int next_variable = choose_next_variable();
     fix_variable(next_variable, 0);
     if (!solution_found)
         fix_variable(next_variable, 1);
@@ -43,7 +47,7 @@ void DPLL::fix_variable(int variable, int value) {
         return;
     }
     else {
-        int next_variable = *assignment->unassigned_variables.begin();
+        int next_variable = choose_next_variable();
         fix_variable(next_variable, 0);
         if (solution_found)
             return;
@@ -54,4 +58,10 @@ void DPLL::fix_variable(int variable, int value) {
         assignment->unassigned_variables.insert(variable);
         return;
     }
+}
+
+int DPLL::choose_next_variable() const {
+    auto it = assignment->unassigned_variables.begin();
+    std::advance(it, dis(gen) % assignment->unassigned_variables.size());
+    return *it;
 }

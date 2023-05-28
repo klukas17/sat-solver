@@ -16,6 +16,7 @@ public:
     DPLL(Assignment* assignment, CNF* cnf);
     void solve();
     void fix_variable(int variable, int value);
+    [[nodiscard]] int choose_next_variable() const;
 };
 
 
