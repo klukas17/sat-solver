@@ -13,8 +13,9 @@ class CNF {
 public:
     std::vector<Clause*> clauses;
     int number_of_variables;
-    CNF(std::vector<Clause*> clauses, int number_of_literals);
+    CNF(std::vector<Clause*> clauses, int number_of_variables);
     bool check_satisfiability(Assignment* assignment);
+    void evaluate(Assignment *assignment);
 };
 
 

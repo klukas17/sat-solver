@@ -5,9 +5,9 @@
 #include "CNF.h"
 #include <utility>
 
-CNF::CNF(std::vector<Clause *> clauses, int number_of_literals) {
+CNF::CNF(std::vector<Clause *> clauses, int number_of_variables) {
     this->clauses = std::move(clauses);
-    this->number_of_variables = number_of_literals;
+    this->number_of_variables = number_of_variables;
 }
 
 bool CNF::check_satisfiability(Assignment *assignment) {
@@ -18,4 +18,9 @@ bool CNF::check_satisfiability(Assignment *assignment) {
             break;
     }
     return result;
+}
+
+void CNF::evaluate(Assignment *assignment) {
+    for (auto clause : clauses)
+        clause->evaluate(assignment);
 }

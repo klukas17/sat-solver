@@ -7,6 +7,7 @@
 
 #include "Assignment.h"
 #include "CNF.h"
+#include "random"
 
 class DPLL {
 public:
@@ -15,8 +16,7 @@ public:
     bool solution_found;
     DPLL(Assignment* assignment, CNF* cnf);
     void solve();
-    void fix_variable(int variable, int value);
-    [[nodiscard]] int choose_next_variable() const;
+    void fix_next_variable();
 };
 
 
