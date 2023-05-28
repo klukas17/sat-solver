@@ -7,11 +7,14 @@
 
 #include "Clause.h"
 #include "vector"
+#include "Assignment.h"
 
 class CNF {
 public:
     std::vector<Clause*> clauses;
-    explicit CNF(std::vector<Clause*> clauses);
+    int number_of_variables;
+    CNF(std::vector<Clause*> clauses, int number_of_literals);
+    bool check_satisfiability(Assignment* assignment);
 };
 
 

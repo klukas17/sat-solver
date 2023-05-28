@@ -6,12 +6,13 @@
 #define SAT_SOLVER_CLAUSE_H
 
 #include "set"
+#include "Assignment.h"
 
 class Clause {
 public:
     std::set<int> literals;
-    std::set<int> negated_literals;
-    Clause(std::set<int> literals, std::set<int> negated_literals);
+    explicit Clause(std::set<int> literals);
+    bool check_satisfiability(Assignment* assignment);
 };
 
 

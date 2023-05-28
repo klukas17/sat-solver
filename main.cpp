@@ -2,6 +2,8 @@
 
 #include "CNF.h"
 #include "DIMACSParser.h"
+#include "DPLL.h"
+#include "Assignment.h"
 
 int main(int argc, char** args) {
     if (argc < 2) {
@@ -9,5 +11,7 @@ int main(int argc, char** args) {
         exit(1);
     }
     CNF* cnf = DIMACSParser::parse_file(args[1]);
+    DPLL* dpll = new DPLL(new Assignment(cnf->number_of_variables), cnf);
+    dpll->solve();
     return 0;
 }

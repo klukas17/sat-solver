@@ -6,7 +6,16 @@
 
 #include <utility>
 
-Clause::Clause(std::set<int> literals, std::set<int> negated_literals) {
+Clause::Clause(std::set<int> literals) {
     this->literals = std::move(literals);
-    this->negated_literals = std::move(negated_literals);
+}
+
+bool Clause::check_satisfiability(Assignment *assignment) {
+    for (int literal : literals) {
+        if (literal < 0 && assignment->variable_assignment[-literal] == 0)
+            return true;
+        if (literal > 0 && assignment->variable_assignment[literal] == 1)
+            return true;
+    }
+    return false;
 }

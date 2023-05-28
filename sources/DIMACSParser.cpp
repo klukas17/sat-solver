@@ -11,6 +11,7 @@ CNF *DIMACSParser::parse_file(const std::string& path) {
     std::ifstream in("../" + path);
     std::string line;
     std::vector<Clause*> clauses;
+    int number_of_literals;
     while (getline(in, line)) {
         if (line[0] == 'c')
             continue;
@@ -25,6 +26,7 @@ CNF *DIMACSParser::parse_file(const std::string& path) {
                 std::cout << "File " << path << " is not in the correct format!" << std::endl;
                 exit(1);
             }
+            number_of_literals = std::stoi(elements[2]);
         }
         else if (line[0] == '%') {
             break;
@@ -33,20 +35,15 @@ CNF *DIMACSParser::parse_file(const std::string& path) {
             std::istringstream iss(line);
             std::string s;
             std::set<int> literals;
-            std::set<int> negated_literals;
             while (getline(iss, s, ' ')) {
                 if (s == "0")
                     break;
                 if (s.empty())
                     continue;
-                int literal = std::stoi(s);
-                if (literal > 0)
-                    literals.insert(literal);
-                else
-                    negated_literals.insert(-literal);
+                literals.insert(std::stoi(s));
             }
-            clauses.push_back(new Clause(literals, negated_literals));
+            clauses.push_back(new Clause(literals));
         }
     }
-    return new CNF(clauses);
+    return new CNF(clauses, number_of_literals);
 }
