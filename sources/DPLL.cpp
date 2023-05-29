@@ -42,8 +42,22 @@ bool DPLL::assign_next_variable() {
             return true;
     } while (continue_searching_for_unit_clause_variables);
 
+    std::vector<int> pure_literal_variables;
+    bool continue_searching_for_pure_literal_variables = true;
+
+    do {
+        if (!assign_pure_literal_variables(pure_literal_variables, continue_searching_for_pure_literal_variables)) {
+            restore_assignments(unit_clause_variables);
+            restore_assignments(pure_literal_variables);
+            return false;
+        }
+        if (cnf->check_satisfiability(assignment))
+            return true;
+    } while (continue_searching_for_pure_literal_variables);
+
     if (assignment->unassigned_variables.empty()){
         restore_assignments(unit_clause_variables);
+        restore_assignments(pure_literal_variables);
         return false;
     }
 
@@ -71,6 +85,7 @@ bool DPLL::assign_next_variable() {
     }
 
     restore_assignments(unit_clause_variables);
+    restore_assignments(pure_literal_variables);
     return false;
 }
 
@@ -109,6 +124,57 @@ bool DPLL::assign_unit_clause_variables(std::vector<int> &unit_clause_variables,
         unit_clause_variables.push_back(var);
         assign_variable(var, val);
     }
+
+    return true;
+}
+
+bool DPLL::assign_pure_literal_variables(std::vector<int> &pure_literal_variables, bool &continue_searching_for_pure_literal_variables) {
+
+    cnf->evaluate_clauses(assignment);
+
+    std::map<int, int> literal_occurrences;
+    std::map<int, int> blacklisted_literals;
+    for (int i = 1; i <= cnf->number_of_variables; i++) {
+        literal_occurrences[i] = literal_occurrences[-i] = 0;
+        blacklisted_literals[i] = 0;
+    }
+
+    for (auto clause : cnf->clauses) {
+        if (clause->last_evaluation)
+            continue;
+        for (auto literal : clause->literals) {
+            if (!blacklisted_literals[literal > 0 ? literal : -literal]) {
+                if (literal_occurrences[-literal] == 0)
+                    literal_occurrences[literal]++;
+                else
+                    blacklisted_literals[literal > 0 ? literal : -literal] = 1;
+            }
+        }
+    }
+
+    int found_pure_literals = 0;
+
+    for (int i = 1; i <= cnf->number_of_variables; i++) {
+        if (blacklisted_literals[i] || assignment->variable_assignment[i] != -1)
+            continue;
+        if (literal_occurrences[i] > 0 && literal_occurrences[-i] == 0) {
+            if (assignment->variable_assignment[i] == 0)
+                return false;
+            pure_literal_variables.push_back(i);
+            assign_variable(i, 1);
+            found_pure_literals++;
+        }
+        else if (literal_occurrences[-i] > 0 && literal_occurrences[i] == 0) {
+            if (assignment->variable_assignment[i] == 1)
+                return false;
+            pure_literal_variables.push_back(i);
+            assign_variable(i, 0);
+            found_pure_literals++;
+        }
+    }
+
+    if (found_pure_literals == 0)
+        continue_searching_for_pure_literal_variables = false;
 
     return true;
 }

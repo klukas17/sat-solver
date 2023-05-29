@@ -18,6 +18,7 @@ public:
     void solve();
     bool assign_next_variable();
     bool assign_unit_clause_variables(std::vector<int> &unit_clause_variables, bool &continue_searching_for_unit_clause_variables);
+    bool assign_pure_literal_variables(std::vector<int> &pure_literal_variables, bool &continue_searching_for_pure_literal_variables);
     void restore_assignments(std::vector<int> &variables);
     void restore_assignment(int variable);
     void assign_variable(int variable, int value);
