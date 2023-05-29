@@ -10,17 +10,23 @@ Clause::Clause(std::set<int> literals) {
     this->literals = std::move(literals);
 }
 
-bool Clause::check_satisfiability(Assignment *assignment) {
-    for (int literal : literals) {
-        if (literal < 0 && assignment->variable_assignment[-literal] == 0)
-            return true;
-        if (literal > 0 && assignment->variable_assignment[literal] == 1)
-            return true;
+void Clause::check_satisfiability(Assignment *assignment, bool &satisfied, bool &contradiction) {
+    satisfied = false;
+    contradiction = false;
+    bool found_unassigned = false;
+    for (auto literal : literals) {
+        if (literal < 0 && assignment->variable_assignment[-literal] == 0 || literal > 0 && assignment->variable_assignment[literal] == 1) {
+            satisfied = true;
+            return;
+        }
+        else {
+            found_unassigned = true;
+        }
     }
-    return false;
+    contradiction = !found_unassigned;
 }
 
-void Clause::evaulate(Assignment *assignment) {
+void Clause::evaluate(Assignment *assignment) {
     for (auto literal : literals) {
         if (literal > 0 && assignment->variable_assignment[literal] == 1) {
             last_evaluation = true;

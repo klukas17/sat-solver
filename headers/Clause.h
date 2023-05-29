@@ -5,6 +5,7 @@
 #ifndef SAT_SOLVER_CLAUSE_H
 #define SAT_SOLVER_CLAUSE_H
 
+#include "extensions.h"
 #include "set"
 #include "Assignment.h"
 
@@ -14,8 +15,8 @@ public:
     bool last_evaluation;
 
     explicit Clause(std::set<int> literals);
-    bool check_satisfiability(Assignment* assignment);
-    void evaulate(Assignment* assignment);
+    void check_satisfiability(Assignment* assignment, bool &satisfied, bool &contradiction);
+    void evaluate(Assignment* assignment);
 };
 
 

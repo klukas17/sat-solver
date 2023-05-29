@@ -5,6 +5,7 @@
 #ifndef SAT_SOLVER_DPLL_H
 #define SAT_SOLVER_DPLL_H
 
+#include "extensions.h"
 #include "Assignment.h"
 #include "CNF.h"
 #include "random"

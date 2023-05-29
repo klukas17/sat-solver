@@ -10,17 +10,17 @@ CNF::CNF(std::vector<Clause *> clauses, int number_of_variables) {
     this->number_of_variables = number_of_variables;
 }
 
-bool CNF::check_satisfiability(Assignment *assignment) {
-    bool result = true;
-    for (Clause* clause : clauses) {
-        result = clause->check_satisfiability(assignment);
-        if (!result)
-            break;
+void CNF::check_satisfiability(Assignment *assignment, bool &satisfied, bool &contradiction) {
+    satisfied = false;
+    contradiction = false;
+    for (auto clause : clauses) {
+        clause->check_satisfiability(assignment, satisfied, contradiction);
+        if (!satisfied || contradiction)
+            return;
     }
-    return result;
 }
 
 void CNF::evaluate_clauses(Assignment *assignment) {
     for (auto clause : clauses)
-        clause->evaulate(assignment);
+        clause->evaluate(assignment);
 }

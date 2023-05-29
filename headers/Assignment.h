@@ -5,6 +5,7 @@
 #ifndef SAT_SOLVER_ASSIGNMENT_H
 #define SAT_SOLVER_ASSIGNMENT_H
 
+#include "extensions.h"
 #include "map"
 #include "set"
 

@@ -5,6 +5,7 @@
 #ifndef SAT_SOLVER_CNF_H
 #define SAT_SOLVER_CNF_H
 
+#include "extensions.h"
 #include "Clause.h"
 #include "vector"
 #include "Assignment.h"
@@ -15,7 +16,7 @@ public:
     int number_of_variables;
 
     CNF(std::vector<Clause*> clauses, int number_of_variables);
-    bool check_satisfiability(Assignment* assignment);
+    void check_satisfiability(Assignment* assignment, bool &satisfied, bool &contradiction);
     void evaluate_clauses(Assignment* assignment);
 };
 

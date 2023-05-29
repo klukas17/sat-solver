@@ -30,6 +30,8 @@ void DPLL::solve() {
 
 bool DPLL::assign_next_variable() {
 
+    bool satisfied = false, contradiction = false;
+
     std::vector<int> unit_clause_variables;
     bool continue_searching_for_unit_clause_variables = true;
 
@@ -38,8 +40,12 @@ bool DPLL::assign_next_variable() {
             restore_assignments(unit_clause_variables);
             return false;
         }
-        if (cnf->check_satisfiability(assignment))
-            return true;
+        cnf->check_satisfiability(assignment, satisfied, contradiction);
+        if (satisfied) return true;
+        if (contradiction) {
+            restore_assignments(unit_clause_variables);
+            return false;
+        }
     } while (continue_searching_for_unit_clause_variables);
 
     std::vector<int> pure_literal_variables;
@@ -51,8 +57,13 @@ bool DPLL::assign_next_variable() {
             restore_assignments(pure_literal_variables);
             return false;
         }
-        if (cnf->check_satisfiability(assignment))
-            return true;
+        cnf->check_satisfiability(assignment, satisfied, contradiction);
+        if (satisfied) return true;
+        if (contradiction) {
+            restore_assignments(unit_clause_variables);
+            restore_assignments(pure_literal_variables);
+            return false;
+        }
     } while (continue_searching_for_pure_literal_variables);
 
     if (assignment->unassigned_variables.empty()){
@@ -75,8 +86,13 @@ bool DPLL::assign_next_variable() {
 
     for (auto value : possible_assignments) {
         assign_variable(variable, value);
-        if (cnf->check_satisfiability(assignment))
-            return true;
+        cnf->check_satisfiability(assignment, satisfied, contradiction);
+        if (satisfied) return true;
+        if (contradiction) {
+            restore_assignments(unit_clause_variables);
+            restore_assignments(pure_literal_variables);
+            return false;
+        }
         else {
             if (assign_next_variable())
                 return true;
