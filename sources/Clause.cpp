@@ -20,16 +20,16 @@ bool Clause::check_satisfiability(Assignment *assignment) {
     return false;
 }
 
-void Clause::evaluate(Assignment *assignment) {
-    for (int literal : literals) {
-        if (literal < 0 && assignment->variable_assignment[-literal] == 0) {
-            last_evaluation = 1;
+void Clause::evaulate(Assignment *assignment) {
+    for (auto literal : literals) {
+        if (literal > 0 && assignment->variable_assignment[literal] == 1) {
+            last_evaluation = true;
             return;
         }
-        if (literal > 0 && assignment->variable_assignment[literal] == 1) {
-            last_evaluation = 1;
+        if (literal < 0 && assignment->variable_assignment[-literal] == 0) {
+            last_evaluation = true;
             return;
         }
     }
-    last_evaluation = 0;
+    last_evaluation = false;
 }

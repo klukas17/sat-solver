@@ -12,6 +12,7 @@ class Assignment {
 public:
     std::map<int, int> variable_assignment;
     std::set<int> unassigned_variables;
+
     explicit Assignment(int number_of_literals);
 };
 

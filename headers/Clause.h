@@ -11,10 +11,11 @@
 class Clause {
 public:
     std::set<int> literals;
-    int last_evaluation;
+    bool last_evaluation;
+
     explicit Clause(std::set<int> literals);
     bool check_satisfiability(Assignment* assignment);
-    void evaluate(Assignment *assignment);
+    void evaulate(Assignment* assignment);
 };
 
 

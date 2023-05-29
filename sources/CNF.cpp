@@ -20,7 +20,7 @@ bool CNF::check_satisfiability(Assignment *assignment) {
     return result;
 }
 
-void CNF::evaluate(Assignment *assignment) {
+void CNF::evaluate_clauses(Assignment *assignment) {
     for (auto clause : clauses)
-        clause->evaluate(assignment);
+        clause->evaulate(assignment);
 }
