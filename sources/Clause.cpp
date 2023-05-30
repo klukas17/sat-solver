@@ -8,6 +8,7 @@
 
 Clause::Clause(std::set<int> literals) {
     this->literals = std::move(literals);
+    this->clause_eliminated = false;
 }
 
 void Clause::check_satisfiability(Assignment *assignment, bool &satisfied, bool &contradiction) {

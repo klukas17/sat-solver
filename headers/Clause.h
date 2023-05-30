@@ -13,6 +13,7 @@ class Clause {
 public:
     std::set<int> literals;
     bool last_evaluation;
+    bool clause_eliminated;
 
     explicit Clause(std::set<int> literals);
     void check_satisfiability(Assignment* assignment, bool &satisfied, bool &contradiction);

@@ -6,6 +6,7 @@
 #include "vector"
 #include "iostream"
 #include "climits"
+#include "algorithm"
 
 std::random_device rd;
 std::mt19937 gen(rd());
@@ -17,9 +18,15 @@ DPLL::DPLL(Assignment *assignment, CNF *cnf) {
 }
 
 void DPLL::solve() {
+
+#ifdef SUBSUMPTION
+    subsumption();
+#endif
+    
     if (!assign_next_variable()) {
         std::cout << "UNSAT" << std::endl;
     }
+
     else {
         std::cout << "SAT:" << std::endl;
         for (auto &it : assignment->variable_assignment)
@@ -209,3 +216,64 @@ void DPLL::assign_variable(int variable, int value) {
     assignment->variable_assignment[variable] = value;
     assignment->unassigned_variables.erase(variable);
 }
+
+#ifdef SUBSUMPTION
+
+bool inline is_subset(const std::set<int>& s1, const std::set<int>& s2) {
+    return std::all_of(s1.begin(), s1.end(), [&s2](const int& elem) {
+        return s2.find(elem) != s2.end();
+    });
+}
+
+void DPLL::subsumption() {
+    std::vector<Clause*> one_literal_clauses, other_clauses;
+    for (auto clause : cnf->clauses)
+        if (clause->literals.size() == 1)
+            one_literal_clauses.push_back(clause);
+        else
+            other_clauses.push_back(clause);
+#ifdef SUBSUMPTION_EXTENSION
+    std::vector<Clause*> new_one_literal_clauses, current_one_literal_clauses;
+    do {
+        if (new_one_literal_clauses.empty())
+            current_one_literal_clauses = one_literal_clauses;
+        else
+            current_one_literal_clauses = new_one_literal_clauses;
+        new_one_literal_clauses.clear();
+#else
+        std::vector<Clause*> current_one_literal_clauses(one_literal_clauses);
+#endif
+        for (auto clause1 : current_one_literal_clauses) {
+            for (auto clause2 : other_clauses) {
+                if (clause2->clause_eliminated)
+                    continue;
+                if (is_subset(clause1->literals, clause2->literals))
+                    clause2->clause_eliminated = true;
+#ifdef SUBSUMPTION_EXTENSION
+                else {
+                    int literal = *clause1->literals.begin();
+                    if (clause2->literals.find(-literal) != clause2->literals.end()) {
+                        clause2->literals.erase(-literal);
+                        if (clause2->literals.size() == 1)
+                            new_one_literal_clauses.push_back(clause2);
+                    }
+                }
+#endif
+            }
+        }
+#ifdef SUBSUMPTION_EXTENSION
+    } while (!new_one_literal_clauses.empty());
+#endif
+    std::vector<Clause*> remaining_clauses;
+    for (auto clause : one_literal_clauses)
+        remaining_clauses.push_back(clause);
+    for (auto clause : other_clauses)
+        if (!clause->clause_eliminated)
+            remaining_clauses.push_back(clause);
+
+    std::cout << "Clauses before subsumption: " << cnf->clauses.size() << std::endl;
+    std::cout << "Clauses after subsumption: " << remaining_clauses.size() << std::endl;
+    cnf->clauses = remaining_clauses;
+}
+
+#endif

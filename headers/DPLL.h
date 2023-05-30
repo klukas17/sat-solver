@@ -23,6 +23,10 @@ public:
     void restore_assignments(std::vector<int> &variables);
     void restore_assignment(int variable);
     void assign_variable(int variable, int value);
+
+#ifdef SUBSUMPTION
+    void subsumption();
+#endif
 };
 
 
