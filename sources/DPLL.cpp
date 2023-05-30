@@ -271,9 +271,25 @@ void DPLL::subsumption() {
         if (!clause->clause_eliminated)
             remaining_clauses.push_back(clause);
 
+    for (auto clause1 : remaining_clauses) {
+        if (clause1->clause_eliminated)
+            continue;
+        for (auto clause2 : remaining_clauses) {
+            if (clause2->clause_eliminated || clause1 == clause2)
+                continue;
+            if (is_subset(clause1->literals, clause2->literals))
+                clause2->clause_eliminated = true;
+        }
+    }
+
+    std::vector<Clause*> final_clauses;
+    for (auto clause : remaining_clauses)
+        if (!clause->clause_eliminated)
+            final_clauses.push_back(clause);
+
     std::cout << "Clauses before subsumption: " << cnf->clauses.size() << std::endl;
-    std::cout << "Clauses after subsumption: " << remaining_clauses.size() << std::endl;
-    cnf->clauses = remaining_clauses;
+    std::cout << "Clauses after subsumption: " << final_clauses.size() << std::endl;
+    cnf->clauses = final_clauses;
 }
 
 #endif
