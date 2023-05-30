@@ -8,5 +8,6 @@ Assignment::Assignment(int number_of_literals) {
     for (int i = 1; i <= number_of_literals; i++) {
         unassigned_variables.insert(i);
         variable_assignment[i] = -1;
+        variable_assignment_level[i] = 0;
     }
 }

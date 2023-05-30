@@ -16,7 +16,7 @@ public:
     int number_of_variables;
 
     CNF(std::vector<Clause*> clauses, int number_of_variables);
-    void check_satisfiability(Assignment* assignment, bool &satisfied, bool &contradiction);
+    void check_satisfiability(Assignment* assignment, bool &satisfied, bool &contradiction, int &conflict_level);
     void evaluate_clauses(Assignment* assignment);
 };
 

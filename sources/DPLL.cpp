@@ -15,16 +15,22 @@ std::uniform_int_distribution<> dis(0, INT_MAX);
 DPLL::DPLL(Assignment *assignment, CNF *cnf) {
     this->assignment = assignment;
     this->cnf = cnf;
-    this->recursion_level = 0;
+    this->last_conflict_level = 0;
 }
 
 void DPLL::solve() {
+
+    // 155232014
+
+//    auto x = 155232014;
+//    std::cout << x << std::endl;
+//    gen.seed(x);
 
 #ifdef SUBSUMPTION
     subsumption();
 #endif
     
-    if (!assign_next_variable()) {
+    if (!assign_next_variable(1)) {
         std::cout << "UNSAT" << std::endl;
     }
 
@@ -36,22 +42,24 @@ void DPLL::solve() {
     }
 }
 
-bool DPLL::assign_next_variable() {
+bool DPLL::assign_next_variable(int level) {
 
     bool satisfied = false, contradiction = false;
+    int conflict_level = 0;
 
     std::vector<int> unit_clause_variables;
     bool continue_searching_for_unit_clause_variables = true;
 
     do {
-        if (!assign_unit_clause_variables(unit_clause_variables, continue_searching_for_unit_clause_variables)) {
+        if (!assign_unit_clause_variables(unit_clause_variables, continue_searching_for_unit_clause_variables, level)) {
             restore_assignments(unit_clause_variables);
             return false;
         }
-        cnf->check_satisfiability(assignment, satisfied, contradiction);
+        cnf->check_satisfiability(assignment, satisfied, contradiction, conflict_level);
         if (satisfied) return true;
         if (contradiction) {
             restore_assignments(unit_clause_variables);
+            last_conflict_level = conflict_level;
             return false;
         }
     } while (continue_searching_for_unit_clause_variables);
@@ -60,16 +68,18 @@ bool DPLL::assign_next_variable() {
     bool continue_searching_for_pure_literal_variables = true;
 
     do {
-        if (!assign_pure_literal_variables(pure_literal_variables, continue_searching_for_pure_literal_variables)) {
+        if (!assign_pure_literal_variables(pure_literal_variables, continue_searching_for_pure_literal_variables, level)) {
             restore_assignments(unit_clause_variables);
             restore_assignments(pure_literal_variables);
+            last_conflict_level = conflict_level;
             return false;
         }
-        cnf->check_satisfiability(assignment, satisfied, contradiction);
+        cnf->check_satisfiability(assignment, satisfied, contradiction, conflict_level);
         if (satisfied) return true;
         if (contradiction) {
             restore_assignments(unit_clause_variables);
             restore_assignments(pure_literal_variables);
+            last_conflict_level = conflict_level;
             return false;
         }
     } while (continue_searching_for_pure_literal_variables);
@@ -77,6 +87,7 @@ bool DPLL::assign_next_variable() {
     if (assignment->unassigned_variables.empty()){
         restore_assignments(unit_clause_variables);
         restore_assignments(pure_literal_variables);
+        last_conflict_level = conflict_level;
         return false;
     }
 
@@ -93,18 +104,26 @@ bool DPLL::assign_next_variable() {
         possible_assignments.push_back(0);
 
     for (auto value : possible_assignments) {
-        assign_variable(variable, value);
-        cnf->check_satisfiability(assignment, satisfied, contradiction);
+        assign_variable(variable, value, level);
+        cnf->check_satisfiability(assignment, satisfied, contradiction, conflict_level);
         if (satisfied) return true;
         if (contradiction) {
             restore_assignments(unit_clause_variables);
             restore_assignments(pure_literal_variables);
+            last_conflict_level = conflict_level;
             return false;
         }
         else {
-            if (assign_next_variable())
+            if (assign_next_variable(level + 1)) {
                 return true;
+            }
+#ifdef IMPLICATION_GRAPH_WITH_BACKJUMPING
             restore_assignment(variable);
+            if (last_conflict_level > 0 && last_conflict_level < level)
+                break;
+            if (last_conflict_level == level)
+                last_conflict_level = 0;
+#endif
         }
     }
 
@@ -113,7 +132,7 @@ bool DPLL::assign_next_variable() {
     return false;
 }
 
-bool DPLL::assign_unit_clause_variables(std::vector<int> &unit_clause_variables, bool &continue_searching_for_unit_clause_variables) const {
+bool DPLL::assign_unit_clause_variables(std::vector<int> &unit_clause_variables, bool &continue_searching_for_unit_clause_variables, int level) const {
 
     std::set<int> found_unit_clause_variables;
 
@@ -146,13 +165,13 @@ bool DPLL::assign_unit_clause_variables(std::vector<int> &unit_clause_variables,
         int var = literal_found > 0 ? literal_found : -literal_found;
         int val = literal_found > 0 ? 1 : 0;
         unit_clause_variables.push_back(var);
-        assign_variable(var, val);
+        assign_variable(var, val, level);
     }
 
     return true;
 }
 
-bool DPLL::assign_pure_literal_variables(std::vector<int> &pure_literal_variables, bool &continue_searching_for_pure_literal_variables) const {
+bool DPLL::assign_pure_literal_variables(std::vector<int> &pure_literal_variables, bool &continue_searching_for_pure_literal_variables, int level) const {
 
     cnf->evaluate_clauses(assignment);
 
@@ -185,14 +204,14 @@ bool DPLL::assign_pure_literal_variables(std::vector<int> &pure_literal_variable
             if (assignment->variable_assignment[i] == 0)
                 return false;
             pure_literal_variables.push_back(i);
-            assign_variable(i, 1);
+            assign_variable(i, 1, level);
             found_pure_literals++;
         }
         else if (literal_occurrences[-i] > 0 && literal_occurrences[i] == 0) {
             if (assignment->variable_assignment[i] == 1)
                 return false;
             pure_literal_variables.push_back(i);
-            assign_variable(i, 0);
+            assign_variable(i, 0, level);
             found_pure_literals++;
         }
     }
@@ -213,8 +232,9 @@ void DPLL::restore_assignment(int variable) const {
     assignment->unassigned_variables.insert(variable);
 }
 
-void DPLL::assign_variable(int variable, int value) const {
+void DPLL::assign_variable(int variable, int value, int level) const {
     assignment->variable_assignment[variable] = value;
+    assignment->variable_assignment_level[variable] = level;
     assignment->unassigned_variables.erase(variable);
 }
 
