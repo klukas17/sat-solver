@@ -15,6 +15,7 @@ std::uniform_int_distribution<> dis(0, INT_MAX);
 DPLL::DPLL(Assignment *assignment, CNF *cnf) {
     this->assignment = assignment;
     this->cnf = cnf;
+    this->recursion_level = 0;
 }
 
 void DPLL::solve() {
@@ -112,7 +113,7 @@ bool DPLL::assign_next_variable() {
     return false;
 }
 
-bool DPLL::assign_unit_clause_variables(std::vector<int> &unit_clause_variables, bool &continue_searching_for_unit_clause_variables) {
+bool DPLL::assign_unit_clause_variables(std::vector<int> &unit_clause_variables, bool &continue_searching_for_unit_clause_variables) const {
 
     std::set<int> found_unit_clause_variables;
 
@@ -151,7 +152,7 @@ bool DPLL::assign_unit_clause_variables(std::vector<int> &unit_clause_variables,
     return true;
 }
 
-bool DPLL::assign_pure_literal_variables(std::vector<int> &pure_literal_variables, bool &continue_searching_for_pure_literal_variables) {
+bool DPLL::assign_pure_literal_variables(std::vector<int> &pure_literal_variables, bool &continue_searching_for_pure_literal_variables) const {
 
     cnf->evaluate_clauses(assignment);
 
@@ -202,17 +203,17 @@ bool DPLL::assign_pure_literal_variables(std::vector<int> &pure_literal_variable
     return true;
 }
 
-void DPLL::restore_assignments(std::vector<int> &variables) {
+void DPLL::restore_assignments(std::vector<int> &variables) const {
     for (auto variable : variables)
         restore_assignment(variable);
 }
 
-void DPLL::restore_assignment(int variable) {
+void DPLL::restore_assignment(int variable) const {
     assignment->variable_assignment[variable] = -1;
     assignment->unassigned_variables.insert(variable);
 }
 
-void DPLL::assign_variable(int variable, int value) {
+void DPLL::assign_variable(int variable, int value) const {
     assignment->variable_assignment[variable] = value;
     assignment->unassigned_variables.erase(variable);
 }
@@ -225,7 +226,7 @@ bool inline is_subset(const std::set<int>& s1, const std::set<int>& s2) {
     });
 }
 
-void DPLL::subsumption() {
+void DPLL::subsumption() const {
     std::vector<Clause*> one_literal_clauses, other_clauses;
     for (auto clause : cnf->clauses)
         if (clause->literals.size() == 1)
@@ -265,8 +266,9 @@ void DPLL::subsumption() {
     } while (!new_one_literal_clauses.empty());
 #endif
     std::vector<Clause*> remaining_clauses;
+    remaining_clauses.reserve(one_literal_clauses.size());
     for (auto clause : one_literal_clauses)
-        remaining_clauses.push_back(clause);
+            remaining_clauses.push_back(clause);
     for (auto clause : other_clauses)
         if (!clause->clause_eliminated)
             remaining_clauses.push_back(clause);

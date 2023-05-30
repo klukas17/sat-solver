@@ -12,7 +12,7 @@
 class Clause {
 public:
     std::set<int> literals;
-    bool last_evaluation;
+    bool last_evaluation{};
     bool clause_eliminated;
 
     explicit Clause(std::set<int> literals);
