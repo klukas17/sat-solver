@@ -253,7 +253,6 @@ void DPLL::subsumption() const {
             one_literal_clauses.push_back(clause);
         else
             other_clauses.push_back(clause);
-#ifdef SUBSUMPTION_EXTENSION
     std::vector<Clause*> new_one_literal_clauses, current_one_literal_clauses;
     do {
         if (new_one_literal_clauses.empty())
@@ -261,16 +260,12 @@ void DPLL::subsumption() const {
         else
             current_one_literal_clauses = new_one_literal_clauses;
         new_one_literal_clauses.clear();
-#else
-        std::vector<Clause*> current_one_literal_clauses(one_literal_clauses);
-#endif
         for (auto clause1 : current_one_literal_clauses) {
             for (auto clause2 : other_clauses) {
                 if (clause2->clause_eliminated || clause2->literals.size() == 1)
                     continue;
                 if (is_subset(clause1->literals, clause2->literals))
                     clause2->clause_eliminated = true;
-#ifdef SUBSUMPTION_EXTENSION
                 else {
                     int literal = *clause1->literals.begin();
                     if (clause2->literals.find(-literal) != clause2->literals.end()) {
@@ -279,12 +274,9 @@ void DPLL::subsumption() const {
                             new_one_literal_clauses.push_back(clause2);
                     }
                 }
-#endif
             }
         }
-#ifdef SUBSUMPTION_EXTENSION
     } while (!new_one_literal_clauses.empty());
-#endif
     std::vector<Clause*> remaining_clauses;
     remaining_clauses.reserve(one_literal_clauses.size());
     for (auto clause : one_literal_clauses)
