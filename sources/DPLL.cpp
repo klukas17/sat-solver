@@ -245,7 +245,7 @@ void DPLL::subsumption() {
 #endif
         for (auto clause1 : current_one_literal_clauses) {
             for (auto clause2 : other_clauses) {
-                if (clause2->clause_eliminated)
+                if (clause2->clause_eliminated || clause2->literals.size() == 1)
                     continue;
                 if (is_subset(clause1->literals, clause2->literals))
                     clause2->clause_eliminated = true;
