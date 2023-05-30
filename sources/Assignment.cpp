@@ -5,6 +5,7 @@
 #include "Assignment.h"
 
 Assignment::Assignment(int number_of_literals) {
+    this->number_of_literals = number_of_literals;
     for (int i = 1; i <= number_of_literals; i++) {
         unassigned_variables.insert(i);
         variable_assignment[i] = -1;

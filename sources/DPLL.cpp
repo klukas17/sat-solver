@@ -20,14 +20,12 @@ DPLL::DPLL(Assignment *assignment, CNF *cnf) {
 
 void DPLL::solve() {
 
-    // 155232014
-
-//    auto x = 155232014;
-//    std::cout << x << std::endl;
-//    gen.seed(x);
-
 #ifdef SUBSUMPTION
     subsumption();
+#endif
+
+#ifdef VARIABLE_STATE_INDEPENDENT_DECAYING_SUM
+    cnf->reset_variable_scores(assignment);
 #endif
     
     if (!assign_next_variable(1)) {
@@ -46,6 +44,7 @@ bool DPLL::assign_next_variable(int level) {
 
     bool satisfied = false, contradiction = false;
     int conflict_level = 0;
+    Clause* contradiction_clause = nullptr;
 
     std::vector<int> unit_clause_variables;
     bool continue_searching_for_unit_clause_variables = true;
@@ -55,11 +54,15 @@ bool DPLL::assign_next_variable(int level) {
             restore_assignments(unit_clause_variables);
             return false;
         }
-        cnf->check_satisfiability(assignment, satisfied, contradiction, conflict_level);
+        cnf->check_satisfiability(assignment, satisfied, contradiction, conflict_level, contradiction_clause);
         if (satisfied) return true;
         if (contradiction) {
             restore_assignments(unit_clause_variables);
             last_conflict_level = conflict_level;
+#ifdef VARIABLE_STATE_INDEPENDENT_DECAYING_SUM
+            for (auto literal : contradiction_clause->literals)
+                assignment->variable_scores[literal > 0 ? literal : -literal] += CNF::CONTRADICTION_SCORE_BOOST;
+#endif
             return false;
         }
     } while (continue_searching_for_unit_clause_variables);
@@ -74,12 +77,16 @@ bool DPLL::assign_next_variable(int level) {
             last_conflict_level = conflict_level;
             return false;
         }
-        cnf->check_satisfiability(assignment, satisfied, contradiction, conflict_level);
+        cnf->check_satisfiability(assignment, satisfied, contradiction, conflict_level, contradiction_clause);
         if (satisfied) return true;
         if (contradiction) {
             restore_assignments(unit_clause_variables);
             restore_assignments(pure_literal_variables);
             last_conflict_level = conflict_level;
+#ifdef VARIABLE_STATE_INDEPENDENT_DECAYING_SUM
+            for (auto literal : contradiction_clause->literals)
+                assignment->variable_scores[literal > 0 ? literal : -literal] += CNF::CONTRADICTION_SCORE_BOOST;
+#endif
             return false;
         }
     } while (continue_searching_for_pure_literal_variables);
@@ -94,9 +101,30 @@ bool DPLL::assign_next_variable(int level) {
     int variable;
     std::vector<int> possible_assignments;
 
+#ifdef VARIABLE_STATE_INDEPENDENT_DECAYING_SUM
+
+    std::vector<int> highest_score_variables;
+    double high_score = 0;
+
+    for (auto var : assignment->unassigned_variables) {
+        if (assignment->variable_scores[var] > high_score) {
+            highest_score_variables.clear();
+            high_score = assignment->variable_scores[var];
+        }
+        if (assignment->variable_scores[var] == high_score)
+            highest_score_variables.push_back(var);
+    }
+
+    variable = highest_score_variables[dis(gen) % highest_score_variables.size()];
+
+#else
+
     auto it = assignment->unassigned_variables.begin();
     std::advance(it, dis(gen) % assignment->unassigned_variables.size());
     variable = *it;
+
+#endif
+
     possible_assignments.push_back(dis(gen) % 2);
     if (possible_assignments[0] == 0)
         possible_assignments.push_back(1);
@@ -105,12 +133,16 @@ bool DPLL::assign_next_variable(int level) {
 
     for (auto value : possible_assignments) {
         assign_variable(variable, value, level);
-        cnf->check_satisfiability(assignment, satisfied, contradiction, conflict_level);
+        cnf->check_satisfiability(assignment, satisfied, contradiction, conflict_level, contradiction_clause);
         if (satisfied) return true;
         if (contradiction) {
             restore_assignments(unit_clause_variables);
             restore_assignments(pure_literal_variables);
             last_conflict_level = conflict_level;
+#ifdef VARIABLE_STATE_INDEPENDENT_DECAYING_SUM
+            for (auto literal : contradiction_clause->literals)
+                assignment->variable_scores[literal > 0 ? literal : -literal] += CNF::CONTRADICTION_SCORE_BOOST;
+#endif
             return false;
         }
         else {
