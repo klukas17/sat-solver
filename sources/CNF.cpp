@@ -11,7 +11,7 @@ CNF::CNF(std::vector<Clause *> clauses, int number_of_variables) {
     this->evaluations_for_decay = 0;
 }
 
-void CNF::check_satisfiability(Assignment *assignment, bool &satisfied, bool &contradiction, int &conflict_level, Clause* &contradiction_clause) {
+void CNF::check_satisfiability(Assignment *assignment, bool &satisfied, bool &contradiction, int &conflict_level, std::vector<Clause*> &contradiction_clauses) {
 #ifdef VARIABLE_STATE_INDEPENDENT_DECAYING_SUM
     evaluations_for_decay++;
     if (evaluations_for_decay >= DECAY_PERIOD) {
@@ -41,8 +41,11 @@ void CNF::check_satisfiability(Assignment *assignment, bool &satisfied, bool &co
                     max_conflict_level = assignment->variable_assignment_level[literal];
             if (conflict_level == 0 || conflict_level > max_conflict_level) {
                 conflict_level = max_conflict_level;
-                contradiction_clause = clause;
+                contradiction_clauses.clear();
+                contradiction_clauses.push_back(clause);
             }
+            else if (conflict_level == max_conflict_level)
+                contradiction_clauses.push_back(clause);
         }
 #endif
     }

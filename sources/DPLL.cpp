@@ -24,6 +24,21 @@ void DPLL::solve() {
     subsumption();
 #endif
 
+#ifdef BOUNDED_VARIABLE_ELIMINATION
+    bool success = true;
+    while (success) {
+        success = bounded_variable_elimination();
+        subsumption();
+    }
+#endif
+
+    std::cout << "Clauses after preprocessing: " << std::endl;
+    for (auto clause : cnf->clauses) {
+        for (auto literal : clause->literals)
+            std::cout << literal << " ";
+        std::cout << std::endl;
+    }
+
 #ifdef VARIABLE_STATE_INDEPENDENT_DECAYING_SUM
     cnf->reset_variable_scores(assignment);
 #endif
@@ -42,9 +57,11 @@ void DPLL::solve() {
 
 bool DPLL::assign_next_variable(int level) {
 
+    std::cout << "Exploring new variable assignment on level " << level << std::endl;
+
     bool satisfied = false, contradiction = false;
     int conflict_level = 0;
-    Clause* contradiction_clause = nullptr;
+    std::vector<Clause*> contradiction_clauses;
 
     std::vector<int> unit_clause_variables;
     bool continue_searching_for_unit_clause_variables = true;
@@ -54,14 +71,16 @@ bool DPLL::assign_next_variable(int level) {
             restore_assignments(unit_clause_variables);
             return false;
         }
-        cnf->check_satisfiability(assignment, satisfied, contradiction, conflict_level, contradiction_clause);
+        cnf->check_satisfiability(assignment, satisfied, contradiction, conflict_level, contradiction_clauses);
         if (satisfied) return true;
         if (contradiction) {
             restore_assignments(unit_clause_variables);
             last_conflict_level = conflict_level;
 #ifdef VARIABLE_STATE_INDEPENDENT_DECAYING_SUM
-            for (auto literal : contradiction_clause->literals)
-                assignment->variable_scores[literal > 0 ? literal : -literal] += CNF::CONTRADICTION_SCORE_BOOST;
+            for (auto clause : contradiction_clauses)
+                for (auto literal : clause->literals)
+                    assignment->variable_scores[literal > 0 ? literal : -literal] += CNF::CONTRADICTION_SCORE_BOOST;
+            contradiction_clauses.clear();
 #endif
             return false;
         }
@@ -77,15 +96,17 @@ bool DPLL::assign_next_variable(int level) {
             last_conflict_level = conflict_level;
             return false;
         }
-        cnf->check_satisfiability(assignment, satisfied, contradiction, conflict_level, contradiction_clause);
+        cnf->check_satisfiability(assignment, satisfied, contradiction, conflict_level, contradiction_clauses);
         if (satisfied) return true;
         if (contradiction) {
             restore_assignments(unit_clause_variables);
             restore_assignments(pure_literal_variables);
             last_conflict_level = conflict_level;
 #ifdef VARIABLE_STATE_INDEPENDENT_DECAYING_SUM
-            for (auto literal : contradiction_clause->literals)
-                assignment->variable_scores[literal > 0 ? literal : -literal] += CNF::CONTRADICTION_SCORE_BOOST;
+            for (auto clause : contradiction_clauses)
+                for (auto literal : clause->literals)
+                    assignment->variable_scores[literal > 0 ? literal : -literal] += CNF::CONTRADICTION_SCORE_BOOST;
+            contradiction_clauses.clear();
 #endif
             return false;
         }
@@ -117,13 +138,40 @@ bool DPLL::assign_next_variable(int level) {
 
     variable = highest_score_variables[dis(gen) % highest_score_variables.size()];
 
+    int positive_occurrences = 0, negative_occurrences = 0;
+
+    for (auto clause : cnf->clauses) {
+        for (auto literal : clause->literals) {
+            if (literal == variable)
+                positive_occurrences++;
+            if (literal == -variable)
+                negative_occurrences++;
+        }
+    }
+
+    if (positive_occurrences > negative_occurrences) {
+        possible_assignments.push_back(1);
+        possible_assignments.push_back(0);
+    }
+
+    else if (positive_occurrences < negative_occurrences) {
+        possible_assignments.push_back(0);
+        possible_assignments.push_back(1);
+    }
+
+    else {
+        possible_assignments.push_back(dis(gen) % 2);
+        if (possible_assignments[0] == 0)
+            possible_assignments.push_back(1);
+        else
+            possible_assignments.push_back(0);
+    }
+
 #else
 
     auto it = assignment->unassigned_variables.begin();
     std::advance(it, dis(gen) % assignment->unassigned_variables.size());
     variable = *it;
-
-#endif
 
     possible_assignments.push_back(dis(gen) % 2);
     if (possible_assignments[0] == 0)
@@ -131,17 +179,21 @@ bool DPLL::assign_next_variable(int level) {
     else
         possible_assignments.push_back(0);
 
+#endif
+
     for (auto value : possible_assignments) {
         assign_variable(variable, value, level);
-        cnf->check_satisfiability(assignment, satisfied, contradiction, conflict_level, contradiction_clause);
+        cnf->check_satisfiability(assignment, satisfied, contradiction, conflict_level, contradiction_clauses);
         if (satisfied) return true;
         if (contradiction) {
             restore_assignments(unit_clause_variables);
             restore_assignments(pure_literal_variables);
             last_conflict_level = conflict_level;
 #ifdef VARIABLE_STATE_INDEPENDENT_DECAYING_SUM
-            for (auto literal : contradiction_clause->literals)
-                assignment->variable_scores[literal > 0 ? literal : -literal] += CNF::CONTRADICTION_SCORE_BOOST;
+            for (auto clause : contradiction_clauses)
+                for (auto literal : clause->literals)
+                    assignment->variable_scores[literal > 0 ? literal : -literal] += CNF::CONTRADICTION_SCORE_BOOST;
+            contradiction_clauses.clear();
 #endif
             return false;
         }
@@ -336,6 +388,174 @@ void DPLL::subsumption() const {
     std::cout << "Clauses before subsumption: " << cnf->clauses.size() << std::endl;
     std::cout << "Clauses after subsumption: " << final_clauses.size() << std::endl;
     cnf->clauses = final_clauses;
+}
+
+#endif
+
+#ifdef BOUNDED_VARIABLE_ELIMINATION
+
+struct BoundedVariableEliminationMapElement {
+    int positive_occurrences = 0;
+    int negative_occurrences = 0;
+    std::vector<Clause*> clauses_with_positive_occurrences;
+    std::vector<Clause*> clauses_with_negative_occurrences;
+};
+
+bool DPLL::bounded_variable_elimination() {
+
+    std::cout << "Starting bounded variable elimination" << std::endl;
+
+    std::map<int, BoundedVariableEliminationMapElement*> bounded_variable_elimination_map;
+    std::set<int> variables;
+
+    std::vector<Clause*> clauses;
+    std::vector<Clause*> unit_clauses;
+
+    bool variable_eliminated = false;
+
+    for (auto clause : cnf->clauses)
+        if (clause->literals.size() == 1)
+            unit_clauses.push_back(clause);
+        else if (clause->literals.size() > 1) {
+            clauses.push_back(clause);
+            for (auto literal : clause->literals)
+                bounded_variable_elimination_map[literal > 0 ? literal : -literal] = nullptr;
+        }
+
+    for (auto it : bounded_variable_elimination_map)
+        bounded_variable_elimination_map[it.first] = new BoundedVariableEliminationMapElement();
+
+    for (auto clause : clauses)
+        for (auto literal : clause->literals) {
+            if (literal > 0) {
+                bounded_variable_elimination_map[literal]->positive_occurrences++;
+                bounded_variable_elimination_map[literal]->clauses_with_positive_occurrences.push_back(clause);
+            }
+            else {
+                bounded_variable_elimination_map[-literal]->negative_occurrences++;
+                bounded_variable_elimination_map[-literal]->clauses_with_negative_occurrences.push_back(clause);
+            }
+        }
+
+    int max_products = 1;
+    int variables_eliminated = 0;
+    while (max_products <= 5000 && variables_eliminated < 1) {
+
+        bool found = false;
+
+        for (auto it : bounded_variable_elimination_map) {
+            int var = it.first;
+
+            if (!bounded_variable_elimination_map[var])
+                continue;
+
+            if (bounded_variable_elimination_map[var]->positive_occurrences * bounded_variable_elimination_map[var]->negative_occurrences > 0 &&
+                bounded_variable_elimination_map[var]->positive_occurrences * bounded_variable_elimination_map[var]->negative_occurrences <= max_products) {
+
+                found = true;
+
+                std::vector<Clause*> new_clauses;
+
+                for (auto clause1 : bounded_variable_elimination_map[var]->clauses_with_positive_occurrences) {
+                    if (clause1->clause_eliminated)
+                        continue;
+                    for (auto clause2 : bounded_variable_elimination_map[var]->clauses_with_negative_occurrences) {
+                        if (clause2->clause_eliminated)
+                            continue;
+                        std::set<int> new_clause_literals;
+                        for (auto literal : clause1->literals)
+                            if (literal != var && -literal != var)
+                                new_clause_literals.insert(literal);
+                        for (auto literal : clause2->literals)
+                            if (literal != var && -literal != var)
+                                new_clause_literals.insert(literal);
+                        bool tautology = false;
+                        for (auto literal : new_clause_literals)
+                            if (new_clause_literals.find(-literal) != new_clause_literals.end()) {
+                                tautology = true;
+                                break;
+                            }
+                        if (tautology)
+                            continue;
+                        new_clauses.push_back(new Clause(new_clause_literals));
+                    }
+                }
+
+                for (auto clause : bounded_variable_elimination_map[var]->clauses_with_positive_occurrences) {
+                    if (clause->clause_eliminated)
+                        continue;
+                    clause->clause_eliminated = true;
+                    for (auto literal : clause->literals) {
+                        if (literal > 0)
+                            bounded_variable_elimination_map[literal]->positive_occurrences--;
+                        else
+                            bounded_variable_elimination_map[-literal]->negative_occurrences--;
+                    }
+                }
+
+                for (auto clause : bounded_variable_elimination_map[var]->clauses_with_negative_occurrences) {
+                    if (clause->clause_eliminated)
+                        continue;
+                    clause->clause_eliminated = true;
+                    for (auto literal : clause->literals) {
+                        if (literal > 0)
+                            bounded_variable_elimination_map[literal]->positive_occurrences--;
+                        else
+                            bounded_variable_elimination_map[-literal]->negative_occurrences--;
+                    }
+                }
+
+                for (auto clause : new_clauses) {
+                    clauses.push_back(clause);
+                    for (auto literal : clause->literals) {
+                        if (literal > 0) {
+                            bounded_variable_elimination_map[literal]->positive_occurrences++;
+                            bounded_variable_elimination_map[literal]->clauses_with_positive_occurrences.push_back(clause);
+                        }
+                        else {
+                            bounded_variable_elimination_map[-literal]->negative_occurrences++;
+                            bounded_variable_elimination_map[-literal]->clauses_with_negative_occurrences.push_back(clause);
+                        }
+                    }
+                }
+
+                delete bounded_variable_elimination_map[var];
+                bounded_variable_elimination_map[var] = nullptr;
+
+                std::cout << "Eliminated variable " << var << std::endl;
+                variables_eliminated++;
+                variable_eliminated = true;
+
+                break;
+            }
+        }
+
+        if (!found)
+            max_products++;
+    }
+
+    std::vector<Clause*> final_clauses;
+
+    final_clauses.reserve(unit_clauses.size());
+
+    for (auto clause : unit_clauses)
+        final_clauses.push_back(clause);
+
+    for (auto clause : clauses)
+        if (!clause->clause_eliminated)
+            final_clauses.push_back(clause);
+
+    cnf->clauses = final_clauses;
+
+    for (auto it : bounded_variable_elimination_map) {
+        int var = it.first;
+        if (bounded_variable_elimination_map[var])
+            delete bounded_variable_elimination_map[var];
+    }
+
+    std::cout << "Finished bounded variable elimination, number of clauses is " << cnf->clauses.size() << std::endl;
+
+    return variable_eliminated;
 }
 
 #endif

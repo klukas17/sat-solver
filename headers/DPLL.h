@@ -28,6 +28,10 @@ public:
 #ifdef SUBSUMPTION
     void subsumption() const;
 #endif
+
+#ifdef BOUNDED_VARIABLE_ELIMINATION
+    bool bounded_variable_elimination();
+#endif
 };
 
 
