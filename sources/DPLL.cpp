@@ -20,6 +20,10 @@ DPLL::DPLL(Assignment *assignment, CNF *cnf) {
 
 void DPLL::solve() {
 
+#ifdef BOUNDED_VARIABLE_ELIMINATION
+    std::vector<Clause*> pre_bve_clauses = cnf->clauses;
+#endif
+
 #ifdef SUBSUMPTION
     subsumption();
 #endif
@@ -28,7 +32,9 @@ void DPLL::solve() {
     bool success = true;
     while (success) {
         success = bounded_variable_elimination();
+#ifdef SUBSUMPTION
         subsumption();
+#endif
     }
 #endif
 
@@ -42,8 +48,35 @@ void DPLL::solve() {
 #ifdef VARIABLE_STATE_INDEPENDENT_DECAYING_SUM
     cnf->reset_variable_scores(assignment);
 #endif
-    
-    if (!assign_next_variable(1)) {
+
+    bool sat = assign_next_variable(1);
+
+#ifdef BOUNDED_VARIABLE_ELIMINATION
+
+    std::cout << "Inserting found solutions as unit clauses to the original problem" << std::endl;
+
+    for (auto it : assignment->variable_assignment) {
+        int var = it.first;
+        if (assignment->variable_assignment[var] != -1) {
+            std::set<int> literals;
+            if (assignment->variable_assignment[var] == 1)
+                literals.insert(var);
+            else if (assignment->variable_assignment[var] == 0)
+                literals.insert(-var);
+            pre_bve_clauses.push_back(new Clause(literals));
+        }
+    }
+
+    for (auto clause : pre_bve_clauses)
+        clause->clause_eliminated = false;
+
+    cnf->clauses = pre_bve_clauses;
+    subsumption();
+    sat = assign_next_variable(1);
+
+#endif
+
+    if (!sat) {
         std::cout << "UNSAT" << std::endl;
     }
 
@@ -53,6 +86,7 @@ void DPLL::solve() {
             if (assignment->variable_assignment[it.first] != -1)
                 std::cout << "\tx" << it.first << " = " << it.second << std::endl;
     }
+
 }
 
 bool DPLL::assign_next_variable(int level) {
@@ -69,6 +103,7 @@ bool DPLL::assign_next_variable(int level) {
     do {
         if (!assign_unit_clause_variables(unit_clause_variables, continue_searching_for_unit_clause_variables, level)) {
             restore_assignments(unit_clause_variables);
+            std::cout << "Found contradiction at level " << level - 1 << std::endl;
             return false;
         }
         cnf->check_satisfiability(assignment, satisfied, contradiction, conflict_level, contradiction_clauses);
@@ -81,6 +116,7 @@ bool DPLL::assign_next_variable(int level) {
                 for (auto literal : clause->literals)
                     assignment->variable_scores[literal > 0 ? literal : -literal] += CNF::CONTRADICTION_SCORE_BOOST;
             contradiction_clauses.clear();
+            std::cout << "Found contradiction at level " << conflict_level << std::endl;
 #endif
             return false;
         }
@@ -93,7 +129,7 @@ bool DPLL::assign_next_variable(int level) {
         if (!assign_pure_literal_variables(pure_literal_variables, continue_searching_for_pure_literal_variables, level)) {
             restore_assignments(unit_clause_variables);
             restore_assignments(pure_literal_variables);
-            last_conflict_level = conflict_level;
+            std::cout << "Found contradiction at level " << level - 1 << std::endl;
             return false;
         }
         cnf->check_satisfiability(assignment, satisfied, contradiction, conflict_level, contradiction_clauses);
@@ -107,6 +143,7 @@ bool DPLL::assign_next_variable(int level) {
                 for (auto literal : clause->literals)
                     assignment->variable_scores[literal > 0 ? literal : -literal] += CNF::CONTRADICTION_SCORE_BOOST;
             contradiction_clauses.clear();
+            std::cout << "Found contradiction at level " << conflict_level << std::endl;
 #endif
             return false;
         }
@@ -116,6 +153,7 @@ bool DPLL::assign_next_variable(int level) {
         restore_assignments(unit_clause_variables);
         restore_assignments(pure_literal_variables);
         last_conflict_level = conflict_level;
+        std::cout << "Found contradiction at level " << level - 1 << std::endl;
         return false;
     }
 
@@ -182,6 +220,7 @@ bool DPLL::assign_next_variable(int level) {
 #endif
 
     for (auto value : possible_assignments) {
+        std::cout << "On level " << level << ", assigning value " << value << " to x" << variable << std::endl;
         assign_variable(variable, value, level);
         cnf->check_satisfiability(assignment, satisfied, contradiction, conflict_level, contradiction_clauses);
         if (satisfied) return true;
@@ -194,6 +233,7 @@ bool DPLL::assign_next_variable(int level) {
                 for (auto literal : clause->literals)
                     assignment->variable_scores[literal > 0 ? literal : -literal] += CNF::CONTRADICTION_SCORE_BOOST;
             contradiction_clauses.clear();
+            std::cout << "Found contradiction at level " << conflict_level << std::endl;
 #endif
             return false;
         }
@@ -213,6 +253,7 @@ bool DPLL::assign_next_variable(int level) {
 
     restore_assignments(unit_clause_variables);
     restore_assignments(pure_literal_variables);
+    std::cout << "Found contradiction at level " << level - 1 << std::endl;
     return false;
 }
 
@@ -401,7 +442,7 @@ struct BoundedVariableEliminationMapElement {
     std::vector<Clause*> clauses_with_negative_occurrences;
 };
 
-bool DPLL::bounded_variable_elimination() {
+bool DPLL::bounded_variable_elimination() const {
 
     std::cout << "Starting bounded variable elimination" << std::endl;
 
@@ -439,7 +480,7 @@ bool DPLL::bounded_variable_elimination() {
 
     int max_products = 1;
     int variables_eliminated = 0;
-    while (max_products <= 5000 && variables_eliminated < 1) {
+    while (max_products <= 1000 && variables_eliminated < 1) {
 
         bool found = false;
 

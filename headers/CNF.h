@@ -21,11 +21,11 @@ public:
     void evaluate_clauses(Assignment* assignment);
 
 #ifdef VARIABLE_STATE_INDEPENDENT_DECAYING_SUM
-    constexpr static double DECAY_FACTOR = 0.9;
-    constexpr static double CONTRADICTION_SCORE_BOOST = 1;
-    const int DECAY_PERIOD = 100;
+    constexpr static double DECAY_FACTOR = 0.99;
+    constexpr static double CONTRADICTION_SCORE_BOOST = 0.1;
+    const int DECAY_PERIOD = 500;
     void reset_variable_scores(Assignment* assignment);
-    void decay_variable_scores(Assignment *assignment);
+    static void decay_variable_scores(Assignment *assignment);
 #endif
 };
 

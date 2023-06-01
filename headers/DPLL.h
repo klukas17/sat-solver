@@ -30,7 +30,7 @@ public:
 #endif
 
 #ifdef BOUNDED_VARIABLE_ELIMINATION
-    bool bounded_variable_elimination();
+    bool bounded_variable_elimination() const;
 #endif
 };
 
