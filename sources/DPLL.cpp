@@ -53,26 +53,29 @@ void DPLL::solve() {
 
 #ifdef BOUNDED_VARIABLE_ELIMINATION
 
-    std::cout << "Inserting found solutions as unit clauses to the original problem" << std::endl;
+    if (sat) {
 
-    for (auto it : assignment->variable_assignment) {
-        int var = it.first;
-        if (assignment->variable_assignment[var] != -1) {
-            std::set<int> literals;
-            if (assignment->variable_assignment[var] == 1)
-                literals.insert(var);
-            else if (assignment->variable_assignment[var] == 0)
-                literals.insert(-var);
-            pre_bve_clauses.push_back(new Clause(literals));
+        std::cout << "Inserting found solutions as unit clauses to the original problem" << std::endl;
+
+        for (auto it : assignment->variable_assignment) {
+            int var = it.first;
+            if (assignment->variable_assignment[var] != -1) {
+                std::set<int> literals;
+                if (assignment->variable_assignment[var] == 1)
+                    literals.insert(var);
+                else if (assignment->variable_assignment[var] == 0)
+                    literals.insert(-var);
+                pre_bve_clauses.push_back(new Clause(literals));
+            }
         }
+
+        for (auto clause : pre_bve_clauses)
+            clause->clause_eliminated = false;
+
+        cnf->clauses = pre_bve_clauses;
+        subsumption();
+        sat = assign_next_variable(1);
     }
-
-    for (auto clause : pre_bve_clauses)
-        clause->clause_eliminated = false;
-
-    cnf->clauses = pre_bve_clauses;
-    subsumption();
-    sat = assign_next_variable(1);
 
 #endif
 
